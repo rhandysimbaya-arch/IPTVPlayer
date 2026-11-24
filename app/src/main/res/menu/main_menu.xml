@@ -1,0 +1,9 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:id="@+id/menu_url" android:title="Load from URL" app:showAsAction="never" />
+    <item android:id="@+id/menu_file" android:title="Open M3U file" app:showAsAction="never" />
+    <item android:id="@+id/menu_presets" android:title="Free playlist sources" app:showAsAction="never" />
+    <item android:id="@+id/menu_add" android:title="Add one channel" app:showAsAction="never" />
+    <item android:id="@+id/menu_export" android:title="Export saved channels (M3U)" app:showAsAction="never" />
+    <item android:id="@+id/menu_clear" android:title="Delete all channels" app:showAsAction="never" />
+</menu>
