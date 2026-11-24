@@ -6,10 +6,10 @@ import java.util.Locale;
 public class Categorizer {
     public static final String KIDS = "Kids", NEWS = "News", MOVIES = "Movies",
             ENT = "Entertainment", SPORTS = "Sports", MUSIC = "Music",
-            KMUSIC = "Korean Music", DOC = "Documentary", LIFE = "Lifestyle",
+            KMUSIC = "Korean Music", PH = "Philippines", DOC = "Documentary", LIFE = "Lifestyle",
             EDU = "Education", GENERAL = "General", OTHER = "Other";
 
-    public static final String[] ORDER = {KIDS, NEWS, MOVIES, ENT, SPORTS, MUSIC, KMUSIC,
+    public static final String[] ORDER = {KIDS, NEWS, MOVIES, ENT, SPORTS, MUSIC, KMUSIC, PH,
             DOC, LIFE, EDU, GENERAL, OTHER};
 
     public static int rank(String group) {

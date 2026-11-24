@@ -88,7 +88,12 @@ public class Checker {
                 if (text.contains("#EXT-X-STREAM-INF")) return probe(resolved, ua, ref, depth + 1);
                 return segmentWorks(resolved, ua, ref);
             }
-            if (ct.contains("text/html") || ct.contains("json") || start.startsWith("<")) return false;
+            if (start.startsWith("<")) {
+                // DASH manifest (.mpd) counts as working; any other markup is an error page
+                String text = new String(head, StandardCharsets.UTF_8);
+                return ct.contains("dash") || text.contains("<MPD");
+            }
+            if (ct.contains("text/html") || ct.contains("json")) return false;
             return true;
         } finally {
             c.disconnect();

@@ -43,6 +43,8 @@ public class Updater {
     private static final String BASE = "https://iptv-org.github.io/iptv/countries/";
     /** American and Western countries: US, Canada, UK, Ireland, Australia, NZ, Germany, France, Spain, Italy, Netherlands. */
     private static final String[] COUNTRIES = {"us", "ca", "gb", "ie", "au", "nz", "de", "fr", "es", "it", "nl"};
+    private static final String PH_URL =
+            "https://raw.githubusercontent.com/Harleythetech/IPHTV/refs/heads/main/ph.m3u";
     private static final Pattern KOREAN_MUSIC =
             Pattern.compile("mtv|mnet|k-?pop|music|뮤직|엠넷", Pattern.CASE_INSENSITIVE);
 
@@ -115,15 +117,16 @@ public class Updater {
             final ChannelStore store = ChannelStore.get(app);
             List<Channel> work;
             if (fetch) {
-                progress("Downloading channel lists…", 0, COUNTRIES.length + 1, 0);
+                progress("Downloading channel lists…", 0, COUNTRIES.length + 2, 0);
                 List<Channel> existing = onMain(() -> new ArrayList<>(store.all));
                 Map<String, Channel> byUrl = new LinkedHashMap<>();
                 for (Channel c : existing) if (c.favorite || c.custom) byUrl.put(c.url, c);
 
                 ExecutorService ex = Executors.newFixedThreadPool(4);
                 List<Future<List<Channel>>> fs = new ArrayList<>();
-                for (final String cc : COUNTRIES) fs.add(ex.submit(() -> download(BASE + cc + ".m3u", false)));
-                fs.add(ex.submit(() -> download(BASE + "kr.m3u", true)));
+                for (final String cc : COUNTRIES) fs.add(ex.submit(() -> download(BASE + cc + ".m3u", 0)));
+                fs.add(ex.submit(() -> download(BASE + "kr.m3u", 1)));
+                fs.add(ex.submit(() -> download(PH_URL, 2)));
                 int ok = 0;
                 for (int i = 0; i < fs.size(); i++) {
                     try {
@@ -219,7 +222,7 @@ public class Updater {
         });
     }
 
-    private List<Channel> download(String urlStr, boolean koreanMusicOnly) throws Exception {
+    private List<Channel> download(String urlStr, int mode) throws Exception {
         String u = urlStr;
         HttpURLConnection conn = null;
         for (int i = 0; i < 6; i++) {
@@ -249,9 +252,11 @@ public class Updater {
         for (Channel c : parsed) {
             String raw = c.group == null ? "" : c.group;
             if (raw.toLowerCase(Locale.ROOT).contains("xxx")) continue;
-            if (koreanMusicOnly) {
+            if (mode == 1) {
                 if (!KOREAN_MUSIC.matcher(c.name).find()) continue;
                 c.group = Categorizer.KMUSIC;
+            } else if (mode == 2) {
+                c.group = Categorizer.PH;
             } else {
                 c.group = Categorizer.categorize(raw, c.name);
             }
