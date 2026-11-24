@@ -1,14 +1,15 @@
 package com.rb.iptvplayer;
 
 import android.content.res.ColorStateList;
-import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.graphics.ColorUtils;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.List;
@@ -23,16 +24,44 @@ public class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.VH> {
         void onFavorite(int position);
     }
 
-    private static final int[] PALETTE = {
-            0xFFE53935, 0xFF8E24AA, 0xFF3949AB, 0xFF1E88E5,
-            0xFF00897B, 0xFF43A047, 0xFFF4511E, 0xFF6D4C41};
-
     private final List<Channel> items;
     private final Listener listener;
 
     public ChannelAdapter(List<Channel> items, Listener listener) {
         this.items = items;
         this.listener = listener;
+    }
+
+    static int iconFor(String g) {
+        if (Categorizer.KIDS.equals(g)) return R.drawable.ic_kids;
+        if (Categorizer.NEWS.equals(g)) return R.drawable.ic_news;
+        if (Categorizer.MOVIES.equals(g)) return R.drawable.ic_movie;
+        if (Categorizer.ENT.equals(g)) return R.drawable.ic_play_circle;
+        if (Categorizer.SPORTS.equals(g)) return R.drawable.ic_sports;
+        if (Categorizer.MUSIC.equals(g)) return R.drawable.ic_music;
+        if (Categorizer.KMUSIC.equals(g)) return R.drawable.ic_headphones;
+        if (Categorizer.PH.equals(g)) return R.drawable.ic_place;
+        if (Categorizer.DOC.equals(g)) return R.drawable.ic_videocam;
+        if (Categorizer.LIFE.equals(g)) return R.drawable.ic_favorite;
+        if (Categorizer.EDU.equals(g)) return R.drawable.ic_school;
+        if (Categorizer.GENERAL.equals(g)) return R.drawable.ic_apps;
+        return R.drawable.ic_tv;
+    }
+
+    static int colorFor(String g) {
+        if (Categorizer.KIDS.equals(g)) return 0xFF29B6F6;
+        if (Categorizer.NEWS.equals(g)) return 0xFF2F80FF;
+        if (Categorizer.MOVIES.equals(g)) return 0xFF5C6BC0;
+        if (Categorizer.ENT.equals(g)) return 0xFF7E57C2;
+        if (Categorizer.SPORTS.equals(g)) return 0xFF26A69A;
+        if (Categorizer.MUSIC.equals(g)) return 0xFFAB47BC;
+        if (Categorizer.KMUSIC.equals(g)) return 0xFFEC407A;
+        if (Categorizer.PH.equals(g)) return 0xFFFFA726;
+        if (Categorizer.DOC.equals(g)) return 0xFF42A5F5;
+        if (Categorizer.LIFE.equals(g)) return 0xFF26C6DA;
+        if (Categorizer.EDU.equals(g)) return 0xFF66BB6A;
+        if (Categorizer.GENERAL.equals(g)) return 0xFF5C7CFA;
+        return 0xFF78909C;
     }
 
     @NonNull
@@ -49,25 +78,25 @@ public class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.VH> {
         h.group.setText(c.group.isEmpty() ? "Ungrouped" : c.group);
 
         int st = c.status;
+        int color;
         if (st == Channel.ONLINE) {
             h.status.setText("● Online");
-            h.status.setTextColor(0xFF43A047);
+            color = 0xFF2ECC71;
         } else if (st == Channel.OFFLINE) {
             h.status.setText("● Offline");
-            h.status.setTextColor(0xFFE53935);
+            color = 0xFFFF5252;
         } else {
             boolean checking = Updater.get(h.itemView.getContext()).isRunning();
             h.status.setText(checking ? "● Checking…" : "● Not checked");
-            h.status.setTextColor(0xFF8A8F98);
+            color = 0xFF8FA6D0;
         }
+        h.status.setTextColor(color);
+        h.status.setBackgroundTintList(ColorStateList.valueOf(ColorUtils.setAlphaComponent(color, 38)));
 
         h.fav.setImageResource(c.favorite ? R.drawable.ic_star : R.drawable.ic_star_border);
 
-        String n = c.name.trim();
-        h.badge.setText(n.isEmpty() ? "?" : n.substring(0, 1).toUpperCase());
-        int color = PALETTE[Math.abs(c.group.hashCode()) % PALETTE.length];
-        h.badge.setBackgroundTintList(ColorStateList.valueOf(color));
-        h.badge.setTextColor(Color.WHITE);
+        h.badge.setImageResource(iconFor(c.group));
+        h.badge.setBackgroundTintList(ColorStateList.valueOf(colorFor(c.group)));
 
         h.itemView.setOnClickListener(v -> {
             int p = h.getBindingAdapterPosition();
@@ -90,7 +119,8 @@ public class ChannelAdapter extends RecyclerView.Adapter<ChannelAdapter.VH> {
     }
 
     static class VH extends RecyclerView.ViewHolder {
-        final TextView badge, name, group, status;
+        final TextView name, group, status;
+        final ImageView badge;
         final ImageButton fav;
 
         VH(View v) {

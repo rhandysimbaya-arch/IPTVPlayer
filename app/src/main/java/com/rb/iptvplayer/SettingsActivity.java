@@ -27,6 +27,10 @@ public class SettingsActivity extends AppCompatActivity {
         sw.setChecked(sp.getBoolean("auto_update", true));
         sw.setOnCheckedChangeListener((b, checked) -> sp.edit().putBoolean("auto_update", checked).apply());
 
+        MaterialSwitch kb = findViewById(R.id.kbSwitch);
+        kb.setChecked(sp.getBoolean("tv_keyboard", true));
+        kb.setOnCheckedChangeListener((b, checked) -> sp.edit().putBoolean("tv_keyboard", checked).apply());
+
         TextView last = findViewById(R.id.lastUpdate);
         long t = sp.getLong("last_update", 0);
         last.setText(t == 0 ? "Last updated: never"

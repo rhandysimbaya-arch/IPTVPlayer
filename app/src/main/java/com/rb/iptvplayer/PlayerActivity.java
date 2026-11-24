@@ -11,6 +11,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.AutoCompleteTextView;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -49,6 +50,10 @@ public class PlayerActivity extends AppCompatActivity {
     private ChannelDropdownAdapter dropdown;
     private TextView error;
     private View topBar;
+    private TvKeyboardView tvKeyboard;
+    private VoiceSearch voice;
+    private boolean tvMode = true;
+    private boolean fresh = true;
     private Channel current;
     private boolean triedHls;
 
@@ -70,10 +75,16 @@ public class PlayerActivity extends AppCompatActivity {
 
         findViewById(R.id.back).setOnClickListener(v -> finish());
 
+        tvMode = getSharedPreferences("prefs", MODE_PRIVATE).getBoolean("tv_keyboard", true);
+        tvKeyboard = findViewById(R.id.tvKeyboard);
+        View kbBtn = findViewById(R.id.kbBtn);
+        kbBtn.setVisibility(tvMode ? View.VISIBLE : View.GONE);
+        searchBox.setShowSoftInputOnFocus(!tvMode);
+
         dropdown = new ChannelDropdownAdapter(queue);
         searchBox.setAdapter(dropdown);
         searchBox.setDropDownBackgroundResource(R.drawable.dropdown_bg);
-        searchBox.setDropDownHeight(getResources().getDisplayMetrics().heightPixels / 2);
+        searchBox.setDropDownHeight(getResources().getDisplayMetrics().heightPixels / 3);
         searchBox.setOnItemClickListener((parent, view, pos, id) -> {
             Channel c = (Channel) parent.getItemAtPosition(pos);
             choose(c);
@@ -88,8 +99,10 @@ public class PlayerActivity extends AppCompatActivity {
             return false;
         });
         searchBox.setOnClickListener(v -> {
+            if (tvMode) showKeyboard();
             if (!searchBox.isPopupShowing()) {
                 dropdown.showAll();
+                updateDropdownHeight();
                 searchBox.showDropDown();
             }
         });
@@ -99,13 +112,85 @@ public class PlayerActivity extends AppCompatActivity {
             } else {
                 searchBox.requestFocus();
                 dropdown.showAll();
+                updateDropdownHeight();
                 searchBox.showDropDown();
+            }
+        });
+
+        voice = new VoiceSearch(this, text -> {
+            fresh = false;
+            searchBox.requestFocus();
+            searchBox.setText(text);
+            searchBox.setSelection(text.length());
+            searchBox.postDelayed(() -> {
+                updateDropdownHeight();
+                searchBox.showDropDown();
+            }, 350);
+        });
+        findViewById(R.id.micBtn).setOnClickListener(v -> voice.start());
+        kbBtn.setOnClickListener(v -> {
+            if (tvKeyboard.getVisibility() == View.VISIBLE) hideKeyboard();
+            else showKeyboard();
+        });
+        tvKeyboard.setListener(new TvKeyboardView.Listener() {
+            private void startFresh() {
+                if (fresh) {
+                    searchBox.setText("", false);
+                    fresh = false;
+                }
+                searchBox.requestFocus();
+            }
+
+            @Override
+            public void onKey(String t) {
+                startFresh();
+                searchBox.append(t);
+                searchBox.setSelection(searchBox.getText().length());
+            }
+
+            @Override
+            public void onBackspace() {
+                startFresh();
+                android.text.Editable e = searchBox.getText();
+                if (e.length() > 0) e.delete(e.length() - 1, e.length());
+            }
+
+            @Override
+            public void onClear() {
+                fresh = false;
+                searchBox.requestFocus();
+                searchBox.setText("");
+            }
+
+            @Override
+            public void onMic() {
+                voice.start();
+            }
+
+            @Override
+            public void onDone() {
+                Channel first = dropdown.first();
+                boolean typed = !fresh && searchBox.getText().length() > 0;
+                if (typed && first != null) choose(first);
+                else hideKeyboard();
+            }
+        });
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (tvKeyboard.getVisibility() == View.VISIBLE) {
+                    hideKeyboard();
+                } else {
+                    setEnabled(false);
+                    getOnBackPressedDispatcher().onBackPressed();
+                }
             }
         });
 
         playerView.setControllerVisibilityListener(
                 (PlayerView.ControllerVisibilityListener) visibility -> {
-                    boolean keep = searchBox.hasFocus() || searchBox.isPopupShowing();
+                    boolean keep = searchBox.hasFocus() || searchBox.isPopupShowing()
+                            || tvKeyboard.getVisibility() == View.VISIBLE;
                     topBar.setVisibility(visibility == View.VISIBLE || keep ? View.VISIBLE : View.GONE);
                 });
 
@@ -115,7 +200,35 @@ public class PlayerActivity extends AppCompatActivity {
         ic.hide(WindowInsetsCompat.Type.systemBars());
     }
 
+    private int dp(int v) {
+        return (int) (v * getResources().getDisplayMetrics().density);
+    }
+
+    private void updateDropdownHeight() {
+        View root = findViewById(R.id.root);
+        int total = root.getHeight();
+        if (total <= 0) return;
+        int kb = tvKeyboard.getVisibility() == View.VISIBLE ? tvKeyboard.getHeight() : 0;
+        int h = total - topBar.getBottom() - kb - dp(8);
+        searchBox.setDropDownHeight(Math.max(h, dp(96)));
+    }
+
+    private void showKeyboard() {
+        InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) imm.hideSoftInputFromWindow(searchBox.getWindowToken(), 0);
+        fresh = true;
+        tvKeyboard.setVisibility(View.VISIBLE);
+        tvKeyboard.post(this::updateDropdownHeight);
+    }
+
+    private void hideKeyboard() {
+        tvKeyboard.setVisibility(View.GONE);
+        searchBox.dismissDropDown();
+        tvKeyboard.post(this::updateDropdownHeight);
+    }
+
     private void choose(Channel c) {
+        hideKeyboard();
         searchBox.dismissDropDown();
         searchBox.clearFocus();
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -167,6 +280,7 @@ public class PlayerActivity extends AppCompatActivity {
         if (player == null) return;
         if (!forceHls) triedHls = false;
         current = c;
+        fresh = true;
         searchBox.setText(c.name, false);
         searchBox.setSelection(0);
         error.setVisibility(View.GONE);

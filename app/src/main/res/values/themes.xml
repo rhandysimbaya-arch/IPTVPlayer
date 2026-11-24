@@ -2,24 +2,35 @@
     <style name="AppTheme" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorPrimaryContainer">#5C1A18</item>
-        <item name="colorOnPrimaryContainer">#FFDAD6</item>
-        <item name="colorSecondary">#FF8A80</item>
-        <item name="colorSecondaryContainer">#4A2220</item>
-        <item name="colorOnSecondaryContainer">#FFDAD6</item>
+        <item name="colorPrimaryContainer">#1B3F8F</item>
+        <item name="colorOnPrimaryContainer">#DCE8FF</item>
+        <item name="colorSecondary">@color/accent</item>
+        <item name="colorSecondaryContainer">#2563EB</item>
+        <item name="colorOnSecondaryContainer">#FFFFFF</item>
         <item name="colorSurface">@color/surface</item>
-        <item name="colorOnSurface">#ECEFF4</item>
-        <item name="colorSurfaceVariant">#2A2F3A</item>
-        <item name="colorOnSurfaceVariant">#B0B6C0</item>
-        <item name="colorOutline">#3A404C</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorSurfaceVariant">#1B2B52</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <item name="colorOutline">@color/stroke</item>
         <item name="android:colorBackground">@color/bg</item>
-        <item name="android:statusBarColor">@color/surface</item>
+        <item name="android:statusBarColor">@color/primary_dark</item>
         <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:fontFamily">@font/poppins</item>
+        <item name="fontFamily">@font/poppins</item>
     </style>
     <style name="PlayerTheme" parent="AppTheme">
         <item name="android:windowBackground">@android:color/black</item>
         <item name="android:windowFullscreen">true</item>
         <item name="android:statusBarColor">@android:color/black</item>
         <item name="android:navigationBarColor">@android:color/black</item>
+    </style>
+    <style name="ToolbarTitle" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:fontFamily">@font/poppins_bold</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textColor">#FFFFFF</item>
+    </style>
+    <style name="ToolbarSubtitle" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:fontFamily">@font/poppins_regular</item>
+        <item name="android:textColor">#CFE0FF</item>
     </style>
 </resources>

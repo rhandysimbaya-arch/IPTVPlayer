@@ -13,6 +13,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.inputmethod.InputMethodManager;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -28,6 +29,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import androidx.core.content.res.ResourcesCompat;
 
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
@@ -64,6 +67,10 @@ public class MainActivity extends AppCompatActivity
     private View progressBox;
     private LinearProgressIndicator progress;
     private TextView progressText, empty;
+    private View clearBtn, kbBtn;
+    private TvKeyboardView tvKeyboard;
+    private VoiceSearch voice;
+    private boolean tvMode = true;
     private String selected = KEY_ALL;
     private boolean rebuildingChips = false;
     private boolean indeterminate = false;
@@ -86,6 +93,7 @@ public class MainActivity extends AppCompatActivity
         store = ChannelStore.get(this);
 
         setSupportActionBar((Toolbar) findViewById(R.id.toolbar));
+        if (getSupportActionBar() != null) getSupportActionBar().setTitle("RB IPTV");
 
         search = findViewById(R.id.search);
         chipGroup = findViewById(R.id.chipGroup);
@@ -93,6 +101,47 @@ public class MainActivity extends AppCompatActivity
         progress = findViewById(R.id.progress);
         progressText = findViewById(R.id.progressText);
         empty = findViewById(R.id.empty);
+        clearBtn = findViewById(R.id.clearBtn);
+        kbBtn = findViewById(R.id.kbBtn);
+        tvKeyboard = findViewById(R.id.tvKeyboard);
+
+        voice = new VoiceSearch(this, text -> setQuery(text));
+        findViewById(R.id.micBtn).setOnClickListener(v -> voice.start());
+        kbBtn.setOnClickListener(v -> {
+            if (tvKeyboard.getVisibility() == View.VISIBLE) hideKeyboard();
+            else showKeyboard();
+        });
+        clearBtn.setOnClickListener(v -> setQuery(""));
+        search.setOnClickListener(v -> {
+            if (tvMode) showKeyboard();
+        });
+        tvKeyboard.setListener(new TvKeyboardView.Listener() {
+            @Override
+            public void onKey(String t) {
+                search.append(t);
+            }
+
+            @Override
+            public void onBackspace() {
+                Editable e = search.getText();
+                if (e.length() > 0) e.delete(e.length() - 1, e.length());
+            }
+
+            @Override
+            public void onClear() {
+                setQuery("");
+            }
+
+            @Override
+            public void onMic() {
+                voice.start();
+            }
+
+            @Override
+            public void onDone() {
+                hideKeyboard();
+            }
+        });
 
         RecyclerView list = findViewById(R.id.list);
         list.setLayoutManager(new LinearLayoutManager(this));
@@ -106,6 +155,7 @@ public class MainActivity extends AppCompatActivity
 
             @Override
             public void onTextChanged(CharSequence s, int a, int b, int c) {
+                clearBtn.setVisibility(s.length() > 0 ? View.VISIBLE : View.GONE);
                 refresh();
             }
 
@@ -126,6 +176,10 @@ public class MainActivity extends AppCompatActivity
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
+                if (tvKeyboard.getVisibility() == View.VISIBLE) {
+                    hideKeyboard();
+                    return;
+                }
                 new AlertDialog.Builder(MainActivity.this)
                         .setTitle("Exit RB IPTV Player?")
                         .setMessage("Do you want to close the app?")
@@ -144,9 +198,29 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    private void setQuery(String q) {
+        search.setText(q);
+        search.setSelection(q.length());
+    }
+
+    private void showKeyboard() {
+        if (!tvMode) return;
+        InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) imm.hideSoftInputFromWindow(search.getWindowToken(), 0);
+        tvKeyboard.setVisibility(View.VISIBLE);
+    }
+
+    private void hideKeyboard() {
+        tvKeyboard.setVisibility(View.GONE);
+    }
+
     @Override
     protected void onStart() {
         super.onStart();
+        tvMode = getSharedPreferences("prefs", MODE_PRIVATE).getBoolean("tv_keyboard", true);
+        search.setShowSoftInputOnFocus(!tvMode);
+        kbBtn.setVisibility(tvMode ? View.VISIBLE : View.GONE);
+        if (!tvMode) hideKeyboard();
         Updater u = Updater.get(this);
         u.setListener(this);
         if (!u.isRunning()) {
@@ -238,6 +312,7 @@ public class MainActivity extends AppCompatActivity
         Chip chip = (Chip) getLayoutInflater().inflate(R.layout.chip_filter, chipGroup, false);
         chip.setId(View.generateViewId());
         chip.setText(label);
+        chip.setTypeface(ResourcesCompat.getFont(this, R.font.poppins_medium));
         chip.setTag(key);
         chipGroup.addView(chip);
         chip.setChecked(key.equals(selected));
@@ -276,6 +351,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onClick(int position) {
+        hideKeyboard();
         PlayerActivity.start(this, store.all, shown.get(position));
     }
 
