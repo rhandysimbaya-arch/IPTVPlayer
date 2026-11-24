@@ -126,7 +126,8 @@ public class MainActivity extends AppCompatActivity implements ChannelAdapter.Li
         rebuildGroups();
         refresh();
         if (store.all.isEmpty()) {
-            status.setText("No channels saved yet. Open the menu (⋮) and choose \"Free playlist sources\" or \"Load from URL\".");
+            // First launch: fetch the Philippines list automatically.
+            loadFromUrl(PRESETS[0][1]);
         }
     }
 
