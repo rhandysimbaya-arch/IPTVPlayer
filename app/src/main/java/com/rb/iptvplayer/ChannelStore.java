@@ -53,6 +53,8 @@ public class ChannelStore {
                 ch.userAgent = o.optString("ua");
                 ch.referer = o.optString("ref");
                 ch.favorite = o.optBoolean("fav");
+                ch.custom = o.optBoolean("custom");
+                ch.status = o.optInt("status", Channel.UNKNOWN);
                 if (!ch.url.isEmpty()) all.add(ch);
             }
         } catch (Exception ignored) {
@@ -73,6 +75,8 @@ public class ChannelStore {
                     o.put("ua", ch.userAgent);
                     o.put("ref", ch.referer);
                     o.put("fav", ch.favorite);
+                    o.put("custom", ch.custom);
+                    o.put("status", ch.status);
                     arr.put(o);
                 }
                 File tmp = new File(file.getPath() + ".tmp");
@@ -88,19 +92,25 @@ public class ChannelStore {
         });
     }
 
-    /** Adds channels whose URL is not saved yet. Returns how many were new. */
-    public int addAll(List<Channel> incoming) {
+    /** Adds channels whose URL is not saved yet and returns the ones that were new. */
+    public List<Channel> addNew(List<Channel> incoming) {
         Set<String> have = new HashSet<>();
         for (Channel c : all) have.add(c.url);
-        int added = 0;
+        List<Channel> added = new ArrayList<>();
         for (Channel c : incoming) {
             if (have.add(c.url)) {
                 all.add(c);
-                added++;
+                added.add(c);
             }
         }
-        if (added > 0) save();
+        if (!added.isEmpty()) save();
         return added;
+    }
+
+    public void replaceAll(List<Channel> list) {
+        all.clear();
+        all.addAll(list);
+        save();
     }
 
     public void remove(Channel c) {
@@ -119,9 +129,14 @@ public class ChannelStore {
     }
 
     public List<String> groups() {
-        Set<String> set = new java.util.TreeSet<>();
+        Set<String> set = new HashSet<>();
         for (Channel c : all) if (!c.group.isEmpty()) set.add(c.group);
-        return new ArrayList<>(set);
+        List<String> list = new ArrayList<>(set);
+        java.util.Collections.sort(list, (a, b) -> {
+            int ra = Categorizer.rank(a), rb = Categorizer.rank(b);
+            return ra != rb ? ra - rb : a.compareToIgnoreCase(b);
+        });
+        return list;
     }
 
     public String toM3u() {

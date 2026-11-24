@@ -1,9 +1,38 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
-    <item android:id="@+id/menu_url" android:title="Load from URL" app:showAsAction="never" />
-    <item android:id="@+id/menu_file" android:title="Open M3U file" app:showAsAction="never" />
-    <item android:id="@+id/menu_presets" android:title="Free playlist sources" app:showAsAction="never" />
-    <item android:id="@+id/menu_add" android:title="Add one channel" app:showAsAction="never" />
-    <item android:id="@+id/menu_export" android:title="Export saved channels (M3U)" app:showAsAction="never" />
-    <item android:id="@+id/menu_clear" android:title="Delete all channels" app:showAsAction="never" />
+    <item
+        android:id="@+id/menu_update"
+        android:icon="@drawable/ic_refresh"
+        android:title="Update channels"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/menu_settings"
+        android:icon="@drawable/ic_settings"
+        android:title="Settings"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/menu_url"
+        android:icon="@drawable/ic_link"
+        android:title="Load playlist from URL"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/menu_file"
+        android:icon="@drawable/ic_folder_open"
+        android:title="Open M3U file"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/menu_add"
+        android:icon="@drawable/ic_add"
+        android:title="Add one channel"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/menu_export"
+        android:icon="@drawable/ic_upload"
+        android:title="Export saved channels"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/menu_clear"
+        android:icon="@drawable/ic_delete"
+        android:title="Delete all channels"
+        app:showAsAction="never" />
 </menu>

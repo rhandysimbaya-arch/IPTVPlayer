@@ -3,6 +3,7 @@ package com.rb.iptvplayer;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
@@ -13,49 +14,44 @@ import android.text.TextWatcher;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.ToggleButton;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.progressindicator.LinearProgressIndicator;
+
 import java.io.BufferedReader;
-import java.net.HttpURLConnection;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class MainActivity extends AppCompatActivity implements ChannelAdapter.Listener {
+public class MainActivity extends AppCompatActivity
+        implements ChannelAdapter.Listener, Updater.Listener {
 
-    private static final String ALL_GROUPS = "All groups";
-
-    private static final String[][] PRESETS = {
-            {"iptv-org: Philippines", "https://iptv-org.github.io/iptv/countries/ph.m3u"},
-            {"iptv-org: News", "https://iptv-org.github.io/iptv/categories/news.m3u"},
-            {"iptv-org: Movies", "https://iptv-org.github.io/iptv/categories/movies.m3u"},
-            {"iptv-org: Kids", "https://iptv-org.github.io/iptv/categories/kids.m3u"},
-            {"iptv-org: Sports", "https://iptv-org.github.io/iptv/categories/sports.m3u"},
-            {"iptv-org: Music", "https://iptv-org.github.io/iptv/categories/music.m3u"},
-            {"iptv-org: All channels (large)", "https://iptv-org.github.io/iptv/index.m3u"},
-            {"Free-TV: curated free channels", "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8"},
-    };
+    private static final String KEY_ALL = "@all";
+    private static final String KEY_FAV = "@fav";
 
     private final ExecutorService bg = Executors.newSingleThreadExecutor();
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -64,11 +60,14 @@ public class MainActivity extends AppCompatActivity implements ChannelAdapter.Li
     private ChannelStore store;
     private ChannelAdapter adapter;
     private EditText search;
-    private ToggleButton favToggle;
-    private Spinner groupSpinner;
-    private TextView status;
-    private String selectedGroup = ALL_GROUPS;
-    private boolean updatingSpinner = false;
+    private ChipGroup chipGroup;
+    private View progressBox;
+    private LinearProgressIndicator progress;
+    private TextView progressText, empty;
+    private String selected = KEY_ALL;
+    private boolean rebuildingChips = false;
+    private boolean indeterminate = false;
+    private String lastPhase = "";
 
     private final ActivityResultLauncher<String[]> openLauncher =
             registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
@@ -86,10 +85,15 @@ public class MainActivity extends AppCompatActivity implements ChannelAdapter.Li
         setContentView(R.layout.activity_main);
         store = ChannelStore.get(this);
 
+        setSupportActionBar((Toolbar) findViewById(R.id.toolbar));
+
         search = findViewById(R.id.search);
-        favToggle = findViewById(R.id.favToggle);
-        groupSpinner = findViewById(R.id.groupSpinner);
-        status = findViewById(R.id.status);
+        chipGroup = findViewById(R.id.chipGroup);
+        progressBox = findViewById(R.id.progressBox);
+        progress = findViewById(R.id.progress);
+        progressText = findViewById(R.id.progressText);
+        empty = findViewById(R.id.empty);
+
         RecyclerView list = findViewById(R.id.list);
         list.setLayoutManager(new LinearLayoutManager(this));
         adapter = new ChannelAdapter(shown, this);
@@ -109,61 +113,177 @@ public class MainActivity extends AppCompatActivity implements ChannelAdapter.Li
             public void afterTextChanged(Editable s) {
             }
         });
-        favToggle.setOnCheckedChangeListener((b, checked) -> refresh());
-        groupSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-                if (updatingSpinner) return;
-                selectedGroup = (String) parent.getItemAtPosition(pos);
-                refresh();
-            }
 
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
+        chipGroup.setOnCheckedStateChangeListener((group, ids) -> {
+            if (rebuildingChips || ids.isEmpty()) return;
+            Chip c = group.findViewById(ids.get(0));
+            if (c != null) {
+                selected = (String) c.getTag();
+                refresh();
             }
         });
 
-        rebuildGroups();
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Exit RB IPTV Player?")
+                        .setMessage("Do you want to close the app?")
+                        .setPositiveButton("Exit", (d, w) -> finishAffinity())
+                        .setNegativeButton("Stay", null)
+                        .show();
+            }
+        });
+
+        rebuildChips();
         refresh();
-        if (store.all.isEmpty()) {
-            // First launch: fetch the Philippines list automatically.
-            loadFromUrl(PRESETS[0][1]);
+
+        if (savedInstanceState == null) {
+            boolean auto = getSharedPreferences("prefs", MODE_PRIVATE).getBoolean("auto_update", true);
+            if (auto || !store.all.isEmpty()) Updater.get(this).start(auto, auto, null);
         }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        Updater u = Updater.get(this);
+        u.setListener(this);
+        if (!u.isRunning()) {
+            progressBox.setVisibility(View.GONE);
+            rebuildChips();
+            refresh();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        Updater.get(this).setListener(null);
+    }
+
+    // ---------- update progress ----------
+
+    @Override
+    public void onProgress(String phase, int done, int total, int online) {
+        progressBox.setVisibility(View.VISIBLE);
+        boolean checking = phase.startsWith("Checking");
+        if (!phase.equals(lastPhase)) {
+            lastPhase = phase;
+            rebuildChips();
+            refresh();
+        }
+        if (checking && total > 0) {
+            if (indeterminate) {
+                progress.setIndeterminate(false);
+                indeterminate = false;
+            }
+            progress.setMax(total);
+            progress.setProgressCompat(done, true);
+            progressText.setText("Checking channels " + done + "/" + total + " · " + online + " working");
+        } else {
+            if (!indeterminate) {
+                progress.setIndeterminate(true);
+                indeterminate = true;
+            }
+            progressText.setText(phase);
+        }
+        adapter.notifyDataSetChanged();
+    }
+
+    @Override
+    public void onDone(String summary) {
+        lastPhase = "";
+        progressBox.setVisibility(View.GONE);
+        rebuildChips();
+        refresh();
+        toast(summary);
+    }
+
+    private void showBusy(String text) {
+        progressBox.setVisibility(View.VISIBLE);
+        if (!indeterminate) {
+            progress.setIndeterminate(true);
+            indeterminate = true;
+        }
+        progressText.setText(text);
+    }
+
+    private void hideBusy() {
+        if (!Updater.get(this).isRunning()) progressBox.setVisibility(View.GONE);
     }
 
     // ---------- list / filter ----------
 
-    private void rebuildGroups() {
-        List<String> groups = new ArrayList<>();
-        groups.add(ALL_GROUPS);
-        groups.addAll(store.groups());
-        if (!groups.contains(selectedGroup)) selectedGroup = ALL_GROUPS;
-        updatingSpinner = true;
-        ArrayAdapter<String> a = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, groups);
-        groupSpinner.setAdapter(a);
-        groupSpinner.setSelection(groups.indexOf(selectedGroup), false);
-        groupSpinner.post(() -> updatingSpinner = false);
+    private void rebuildChips() {
+        Map<String, Integer> counts = new HashMap<>();
+        int fav = 0;
+        for (Channel c : store.all) {
+            Integer n = counts.get(c.group);
+            counts.put(c.group, n == null ? 1 : n + 1);
+            if (c.favorite) fav++;
+        }
+        if (!selected.equals(KEY_ALL) && !selected.equals(KEY_FAV) && !counts.containsKey(selected)) {
+            selected = KEY_ALL;
+        }
+        rebuildingChips = true;
+        chipGroup.removeAllViews();
+        addChip("All (" + store.all.size() + ")", KEY_ALL);
+        addChip("★ Favorites (" + fav + ")", KEY_FAV);
+        for (String g : store.groups()) addChip(g + " (" + counts.get(g) + ")", g);
+        rebuildingChips = false;
+    }
+
+    private void addChip(String label, String key) {
+        Chip chip = (Chip) getLayoutInflater().inflate(R.layout.chip_filter, chipGroup, false);
+        chip.setId(View.generateViewId());
+        chip.setText(label);
+        chip.setTag(key);
+        chipGroup.addView(chip);
+        chip.setChecked(key.equals(selected));
     }
 
     private void refresh() {
         String q = search.getText().toString().trim().toLowerCase();
-        boolean favOnly = favToggle.isChecked();
         shown.clear();
         for (Channel c : store.all) {
-            if (favOnly && !c.favorite) continue;
-            if (!selectedGroup.equals(ALL_GROUPS) && !c.group.equals(selectedGroup)) continue;
+            if (selected.equals(KEY_FAV)) {
+                if (!c.favorite) continue;
+            } else if (!selected.equals(KEY_ALL) && !c.group.equals(selected)) {
+                continue;
+            }
             if (!q.isEmpty() && !c.name.toLowerCase().contains(q) && !c.group.toLowerCase().contains(q)) continue;
             shown.add(c);
         }
         adapter.notifyDataSetChanged();
-        if (!store.all.isEmpty()) {
-            status.setText(shown.size() + " shown · " + store.all.size() + " saved");
+
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setSubtitle(shown.size() + " channels");
+        }
+        if (shown.isEmpty()) {
+            if (Updater.get(this).isRunning()) {
+                empty.setText("Downloading and testing channels…\nThis can take a few minutes.");
+            } else if (store.all.isEmpty()) {
+                empty.setText("No channels yet.\nTap the refresh icon to download the latest channels.");
+            } else {
+                empty.setText("No channels match.");
+            }
+            empty.setVisibility(View.VISIBLE);
+        } else {
+            empty.setVisibility(View.GONE);
         }
     }
 
     @Override
     public void onClick(int position) {
-        PlayerActivity.start(this, shown, position);
+        PlayerActivity.start(this, store.all, shown.get(position));
+    }
+
+    @Override
+    public void onFavorite(int position) {
+        store.toggleFavorite(shown.get(position));
+        rebuildChips();
+        refresh();
     }
 
     @Override
@@ -177,6 +297,7 @@ public class MainActivity extends AppCompatActivity implements ChannelAdapter.Li
             switch (item.getItemId()) {
                 case 1:
                     store.toggleFavorite(c);
+                    rebuildChips();
                     refresh();
                     break;
                 case 2:
@@ -186,7 +307,7 @@ public class MainActivity extends AppCompatActivity implements ChannelAdapter.Li
                     break;
                 case 3:
                     store.remove(c);
-                    rebuildGroups();
+                    rebuildChips();
                     refresh();
                     break;
             }
@@ -206,12 +327,19 @@ public class MainActivity extends AppCompatActivity implements ChannelAdapter.Li
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
-        if (id == R.id.menu_url) {
+        if (id == R.id.menu_update) {
+            if (Updater.get(this).start(true, true, null)) {
+                toast("Updating channels…");
+                refresh();
+            } else {
+                toast("An update is already running");
+            }
+        } else if (id == R.id.menu_settings) {
+            startActivity(new Intent(this, SettingsActivity.class));
+        } else if (id == R.id.menu_url) {
             askUrl();
         } else if (id == R.id.menu_file) {
             openLauncher.launch(new String[]{"*/*"});
-        } else if (id == R.id.menu_presets) {
-            showPresets();
         } else if (id == R.id.menu_add) {
             addOne();
         } else if (id == R.id.menu_export) {
@@ -223,9 +351,8 @@ public class MainActivity extends AppCompatActivity implements ChannelAdapter.Li
                     .setMessage("This removes all " + store.all.size() + " saved channels, including favorites.")
                     .setPositiveButton("Delete", (d, w) -> {
                         store.clear();
-                        rebuildGroups();
+                        rebuildChips();
                         refresh();
-                        status.setText("No channels saved yet.");
                     })
                     .setNegativeButton("Cancel", null)
                     .show();
@@ -233,15 +360,6 @@ public class MainActivity extends AppCompatActivity implements ChannelAdapter.Li
             return super.onOptionsItemSelected(item);
         }
         return true;
-    }
-
-    private void showPresets() {
-        String[] names = new String[PRESETS.length];
-        for (int i = 0; i < PRESETS.length; i++) names[i] = PRESETS[i][0];
-        new AlertDialog.Builder(this)
-                .setTitle("Free playlist sources")
-                .setItems(names, (d, which) -> loadFromUrl(PRESETS[which][1]))
-                .show();
     }
 
     private void askUrl() {
@@ -288,13 +406,12 @@ public class MainActivity extends AppCompatActivity implements ChannelAdapter.Li
                     Channel c = new Channel();
                     c.url = u;
                     c.name = n.isEmpty() ? u : n;
-                    c.group = group.getText().toString().trim();
+                    String g = group.getText().toString().trim();
+                    c.group = g.isEmpty() ? Categorizer.categorize("", c.name) : g;
+                    c.custom = true;
                     List<Channel> l = new ArrayList<>();
                     l.add(c);
-                    int added = store.addAll(l);
-                    rebuildGroups();
-                    refresh();
-                    toast(added > 0 ? "Channel saved" : "Already saved");
+                    addAndCheck(l);
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
@@ -309,10 +426,22 @@ public class MainActivity extends AppCompatActivity implements ChannelAdapter.Li
         return wrap;
     }
 
+    private void addAndCheck(List<Channel> incoming) {
+        List<Channel> added = store.addNew(incoming);
+        rebuildChips();
+        refresh();
+        if (added.isEmpty()) {
+            toast("Already saved");
+        } else {
+            toast(added.size() + " channels saved");
+            Updater.get(this).start(false, false, added);
+        }
+    }
+
     // ---------- loading / saving ----------
 
     private void loadFromUrl(final String urlStr) {
-        status.setText("Loading playlist…");
+        showBusy("Loading playlist…");
         bg.execute(() -> {
             try {
                 String u = urlStr;
@@ -341,23 +470,23 @@ public class MainActivity extends AppCompatActivity implements ChannelAdapter.Li
                 }
             } catch (final Exception e) {
                 ui.post(() -> {
-                    status.setText("Couldn't load playlist: " + e.getMessage());
-                    refresh();
+                    hideBusy();
+                    toast("Couldn't load playlist: " + e.getMessage());
                 });
             }
         });
     }
 
     private void loadFromUri(final Uri uri) {
-        status.setText("Reading file…");
+        showBusy("Reading file…");
         bg.execute(() -> {
             try (InputStream in = getContentResolver().openInputStream(uri)) {
                 if (in == null) throw new Exception("Can't open file");
                 importStream(in);
             } catch (final Exception e) {
                 ui.post(() -> {
-                    status.setText("Couldn't read file: " + e.getMessage());
-                    refresh();
+                    hideBusy();
+                    toast("Couldn't read file: " + e.getMessage());
                 });
             }
         });
@@ -368,14 +497,16 @@ public class MainActivity extends AppCompatActivity implements ChannelAdapter.Li
         BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
         final List<Channel> parsed = M3uParser.parse(r);
         ui.post(() -> {
-            int added = store.addAll(parsed);
-            rebuildGroups();
-            refresh();
+            hideBusy();
             if (parsed.isEmpty()) {
-                status.setText("No channels found in that playlist.");
-            } else {
-                toast(added + " new channels saved (" + parsed.size() + " in playlist)");
+                toast("No channels found in that playlist.");
+                return;
             }
+            for (Channel c : parsed) {
+                c.custom = true;
+                c.group = Categorizer.categorize(c.group, c.name);
+            }
+            addAndCheck(parsed);
         });
     }
 

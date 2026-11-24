@@ -3,8 +3,12 @@ package com.rb.iptvplayer;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.AutoCompleteTextView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -27,38 +31,83 @@ import java.util.Map;
 public class PlayerActivity extends AppCompatActivity {
 
     private static List<Channel> queue = new ArrayList<>();
-    private static int startIndex = 0;
+    private static Channel startChannel;
 
-    public static void start(Context c, List<Channel> list, int position) {
-        queue = new ArrayList<>(list);
-        startIndex = position;
+    /** Opens the player. The dropdown lists every channel that is not known to be offline. */
+    public static void start(Context c, List<Channel> all, Channel current) {
+        List<Channel> q = new ArrayList<>();
+        for (Channel ch : all) if (ch.status != Channel.OFFLINE) q.add(ch);
+        if (!q.contains(current)) q.add(0, current);
+        queue = q;
+        startChannel = current;
         c.startActivity(new Intent(c, PlayerActivity.class));
     }
 
     private ExoPlayer player;
     private PlayerView playerView;
-    private TextView title, error;
+    private AutoCompleteTextView searchBox;
+    private ChannelDropdownAdapter dropdown;
+    private TextView error;
     private View topBar;
-    private int index;
+    private Channel current;
     private boolean triedHls;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (queue.isEmpty() || startChannel == null) {
+            finish();
+            return;
+        }
         setContentView(R.layout.activity_player);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         playerView = findViewById(R.id.playerView);
-        title = findViewById(R.id.title);
+        searchBox = findViewById(R.id.searchBox);
         error = findViewById(R.id.error);
         topBar = findViewById(R.id.topBar);
-        index = savedInstanceState != null ? savedInstanceState.getInt("index") : startIndex;
+        current = startChannel;
 
-        findViewById(R.id.prev).setOnClickListener(v -> play(index - 1, false));
-        findViewById(R.id.next).setOnClickListener(v -> play(index + 1, false));
+        findViewById(R.id.back).setOnClickListener(v -> finish());
+
+        dropdown = new ChannelDropdownAdapter(queue);
+        searchBox.setAdapter(dropdown);
+        searchBox.setDropDownBackgroundResource(R.drawable.dropdown_bg);
+        searchBox.setDropDownHeight(getResources().getDisplayMetrics().heightPixels / 2);
+        searchBox.setOnItemClickListener((parent, view, pos, id) -> {
+            Channel c = (Channel) parent.getItemAtPosition(pos);
+            choose(c);
+        });
+        searchBox.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE
+                    || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
+                Channel first = dropdown.first();
+                if (first != null) choose(first);
+                return true;
+            }
+            return false;
+        });
+        searchBox.setOnClickListener(v -> {
+            if (!searchBox.isPopupShowing()) {
+                dropdown.showAll();
+                searchBox.showDropDown();
+            }
+        });
+        findViewById(R.id.dropBtn).setOnClickListener(v -> {
+            if (searchBox.isPopupShowing()) {
+                searchBox.dismissDropDown();
+            } else {
+                searchBox.requestFocus();
+                dropdown.showAll();
+                searchBox.showDropDown();
+            }
+        });
+
         playerView.setControllerVisibilityListener(
-                (PlayerView.ControllerVisibilityListener) visibility ->
-                        topBar.setVisibility(visibility == View.VISIBLE ? View.VISIBLE : View.GONE));
+                (PlayerView.ControllerVisibilityListener) visibility -> {
+                    boolean keep = searchBox.hasFocus() || searchBox.isPopupShowing();
+                    topBar.setVisibility(visibility == View.VISIBLE || keep ? View.VISIBLE : View.GONE);
+                });
 
         WindowInsetsControllerCompat ic =
                 new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
@@ -66,9 +115,18 @@ public class PlayerActivity extends AppCompatActivity {
         ic.hide(WindowInsetsCompat.Type.systemBars());
     }
 
+    private void choose(Channel c) {
+        searchBox.dismissDropDown();
+        searchBox.clearFocus();
+        InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) imm.hideSoftInputFromWindow(searchBox.getWindowToken(), 0);
+        play(c, false);
+    }
+
     @Override
     protected void onStart() {
         super.onStart();
+        if (current == null) return;
         player = new ExoPlayer.Builder(this).build();
         playerView.setPlayer(player);
         player.addListener(new Player.Listener() {
@@ -85,15 +143,15 @@ public class PlayerActivity extends AppCompatActivity {
                                 || e.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED;
                 if (!triedHls && formatProblem) {
                     triedHls = true;
-                    play(index, true);
+                    play(current, true);
                     return;
                 }
-                error.setText("Can't play this channel (" + e.getErrorCodeName()
-                        + ").\nIt may be offline or blocked in your region. Try Next.");
+                error.setText("Can't play this channel right now (" + e.getErrorCodeName()
+                        + ").\nPick another one from the list at the top.");
                 error.setVisibility(View.VISIBLE);
             }
         });
-        play(index, false);
+        play(current, false);
     }
 
     @Override
@@ -105,21 +163,12 @@ public class PlayerActivity extends AppCompatActivity {
         }
     }
 
-    @Override
-    protected void onSaveInstanceState(Bundle out) {
-        super.onSaveInstanceState(out);
-        out.putInt("index", index);
-    }
-
-    private void play(int i, boolean forceHls) {
-        if (queue.isEmpty()) {
-            finish();
-            return;
-        }
+    private void play(Channel c, boolean forceHls) {
+        if (player == null) return;
         if (!forceHls) triedHls = false;
-        index = ((i % queue.size()) + queue.size()) % queue.size();
-        Channel c = queue.get(index);
-        title.setText(c.name);
+        current = c;
+        searchBox.setText(c.name, false);
+        searchBox.setSelection(0);
         error.setVisibility(View.GONE);
 
         DefaultHttpDataSource.Factory f = new DefaultHttpDataSource.Factory()

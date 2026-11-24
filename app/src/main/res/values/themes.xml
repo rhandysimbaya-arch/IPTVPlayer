@@ -1,11 +1,25 @@
 <resources>
-    <style name="AppTheme" parent="Theme.AppCompat.DayNight.DarkActionBar">
-        <item name="colorPrimary">#B71C1C</item>
-        <item name="colorPrimaryDark">#7F0000</item>
-        <item name="colorAccent">#FF5252</item>
+    <style name="AppTheme" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#5C1A18</item>
+        <item name="colorOnPrimaryContainer">#FFDAD6</item>
+        <item name="colorSecondary">#FF8A80</item>
+        <item name="colorSecondaryContainer">#4A2220</item>
+        <item name="colorOnSecondaryContainer">#FFDAD6</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">#ECEFF4</item>
+        <item name="colorSurfaceVariant">#2A2F3A</item>
+        <item name="colorOnSurfaceVariant">#B0B6C0</item>
+        <item name="colorOutline">#3A404C</item>
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/surface</item>
+        <item name="android:navigationBarColor">@color/bg</item>
     </style>
-    <style name="PlayerTheme" parent="Theme.AppCompat.NoActionBar">
+    <style name="PlayerTheme" parent="AppTheme">
         <item name="android:windowBackground">@android:color/black</item>
         <item name="android:windowFullscreen">true</item>
+        <item name="android:statusBarColor">@android:color/black</item>
+        <item name="android:navigationBarColor">@android:color/black</item>
     </style>
 </resources>
