@@ -23,10 +23,6 @@ public class SettingsActivity extends AppCompatActivity {
         MaterialToolbar tb = findViewById(R.id.toolbar);
         tb.setNavigationOnClickListener(v -> finish());
 
-        MaterialSwitch sw = findViewById(R.id.autoSwitch);
-        sw.setChecked(sp.getBoolean("auto_update", true));
-        sw.setOnCheckedChangeListener((b, checked) -> sp.edit().putBoolean("auto_update", checked).apply());
-
         MaterialSwitch kb = findViewById(R.id.kbSwitch);
         kb.setChecked(sp.getBoolean("tv_keyboard", true));
         kb.setOnCheckedChangeListener((b, checked) -> sp.edit().putBoolean("tv_keyboard", checked).apply());

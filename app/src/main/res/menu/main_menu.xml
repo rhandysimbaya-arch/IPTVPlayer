@@ -1,11 +1,6 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
-        android:id="@+id/menu_update"
-        android:icon="@drawable/ic_refresh"
-        android:title="Update channels"
-        app:showAsAction="always" />
-    <item
         android:id="@+id/menu_settings"
         android:icon="@drawable/ic_settings"
         android:title="Settings"

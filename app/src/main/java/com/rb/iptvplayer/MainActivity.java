@@ -192,10 +192,6 @@ public class MainActivity extends AppCompatActivity
         rebuildChips();
         refresh();
 
-        if (savedInstanceState == null) {
-            boolean auto = getSharedPreferences("prefs", MODE_PRIVATE).getBoolean("auto_update", true);
-            if (auto || !store.all.isEmpty()) Updater.get(this).start(auto, auto, null);
-        }
     }
 
     private void setQuery(String q) {
@@ -339,7 +335,7 @@ public class MainActivity extends AppCompatActivity
             if (Updater.get(this).isRunning()) {
                 empty.setText("Downloading and testing channels…\nThis can take a few minutes.");
             } else if (store.all.isEmpty()) {
-                empty.setText("No channels yet.\nTap the refresh icon to download the latest channels.");
+                empty.setText("No channels yet.\nOpen Settings (the gear icon) and tap\n\"Download / update channels\".");
             } else {
                 empty.setText("No channels match.");
             }
@@ -403,14 +399,7 @@ public class MainActivity extends AppCompatActivity
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
-        if (id == R.id.menu_update) {
-            if (Updater.get(this).start(true, true, null)) {
-                toast("Updating channels…");
-                refresh();
-            } else {
-                toast("An update is already running");
-            }
-        } else if (id == R.id.menu_settings) {
+        if (id == R.id.menu_settings) {
             startActivity(new Intent(this, SettingsActivity.class));
         } else if (id == R.id.menu_url) {
             askUrl();

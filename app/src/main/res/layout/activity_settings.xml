@@ -25,58 +25,7 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:cardBackgroundColor="@color/card"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:strokeColor="@color/stroke"
-                app:strokeWidth="1dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Auto-update channels"
-                                android:fontFamily="@font/poppins_semibold"
-                                android:textColor="@color/text_primary"
-                                android:textSize="16sp" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:paddingTop="4dp"
-                                android:text="Every time the app opens, download the latest American and Western channels, test them and remove the ones that don't work."
-                                android:textColor="@color/text_secondary"
-                                android:textSize="13sp" />
-                        </LinearLayout>
-
-                        <com.google.android.material.materialswitch.MaterialSwitch
-                            android:id="@+id/autoSwitch"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp" />
-                    </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+</com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
@@ -145,7 +94,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Update now"
+                        android:text="Download &amp; update channels"
                         android:fontFamily="@font/poppins_semibold"
                         android:textColor="@color/text_primary"
                         android:textSize="16sp" />
@@ -174,7 +123,7 @@
                 android:paddingStart="4dp"
                 android:paddingTop="16dp"
                 android:paddingEnd="4dp"
-                android:text="An update replaces your saved channels with the latest working ones, sorted into groups (Kids, News, Movies, Sports, Music, Korean Music and more). Channels you marked as favorites and channels you added yourself are never removed. Availability is tested from your own connection, so channels blocked in your region are treated as unavailable."
+                android:text="Channels are only downloaded or updated when you tap the button above — never automatically when the app opens. An update replaces your saved channels with the latest working ones, sorted into groups (Kids, News, Movies, Sports, Music, Korean Music, Philippines and more). Favorites and channels you added yourself are never removed. Availability is tested from your own connection, so channels blocked in your region show as unavailable."
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
         </LinearLayout>
